@@ -32,25 +32,57 @@
       padding-top: 10px;
       border-top: 1px solid #ccc;
     }
+
+    .hidden {
+      display: none !important;
+    }
+
+    #keySection {
+      border-bottom: 1px solid #ccc;
+      padding-bottom: 10px;
+      margin-bottom: 10px;
+    }
+
+    #mainContent {
+      opacity: 1;
+      transition: opacity 0.3s ease;
+    }
+
+    #mainContent.hidden {
+      opacity: 0;
+    }
+
+    #clearKey {
+      background-color: #f8f9fa;
+      border: 1px solid #dee2e6;
+      color: #212529;
+    }
   </style>
 </head>
 
 <body>
   <div class="container">
-    <input type="password" id="encryptionKey" placeholder="Enter encryption key">
-    <button id="setKey">Set Key</button>
-    <button id="resetAll" class="danger">Reset All</button>
-    <div id="keyStatus"></div>
-    <hr />
-    <select id="serviceSelect">
-      <option value="">Select a service</option>
-    </select>
-    <div id="totpCode"></div>
-    <span id="timeRemaining"></span>
-    <button id="copyButton" class="button">Copy to Clipboard</button>
+    <div id="keySection">
+      <div id="keyRequestSection">
+        <input type="password" id="encryptionKey" placeholder="Enter encryption key">
+        <button id="setKey">Set Key</button>
+        <div id="keyStatus"></div>
+      </div>
+      <button id="clearKey" class="button hidden">Clear Session Key</button>
+    </div>
 
-    <div id="importSection">
-      <button id="importTrigger">Import</button>
+    <div id="mainContent" class="hidden">
+      <select id="serviceSelect">
+        <option value="">Select a service</option>
+      </select>
+      <div id="totpCode"></div>
+      <span id="timeRemaining"></span>
+      <button id="copyButton" class="button">Copy to Clipboard</button>
+
+      <div id="importSection">
+        <button id="importTrigger">Import</button>
+      </div>
+      <button id="resetAll" class="danger">Reset All</button>
     </div>
   </div>
   <script src="lib/jsOTP.min.js"></script>

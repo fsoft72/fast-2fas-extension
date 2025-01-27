@@ -12,8 +12,36 @@ class TOTPManager {
     this.initialize();
   }
 
+  updateUIState () {
+    const keyRequestSection = document.getElementById( 'keyRequestSection' );
+    const clearKeyButton = document.getElementById( 'clearKey' );
+    const mainContent = document.getElementById( 'mainContent' );
+
+    if ( this.encryptionKey ) {
+      // Key is set
+      keyRequestSection.classList.add( 'hidden' );
+      clearKeyButton.classList.remove( 'hidden' );
+      mainContent.classList.remove( 'hidden' );
+    } else {
+      // No key set
+      keyRequestSection.classList.remove( 'hidden' );
+      clearKeyButton.classList.add( 'hidden' );
+      mainContent.classList.add( 'hidden' );
+    }
+  }
+
+  async clearSessionKey () {
+    this.encryptionKey = null;
+    await chrome.runtime.sendMessage( {
+      type: 'setEncryptionKey',
+      key: null
+    } );
+    document.getElementById( 'encryptionKey' ).value = '';
+    document.getElementById( 'keyStatus' ).textContent = 'Session key cleared';
+    this.updateUIState();
+  }
+
   async initialize () {
-    // Try to get the stored key first
     const response = await chrome.runtime.sendMessage( { type: 'getEncryptionKey' } );
     if ( response.key ) {
       this.encryptionKey = response.key;
@@ -22,6 +50,7 @@ class TOTPManager {
     } else {
       await this.checkEncryptionKey();
     }
+    this.updateUIState();
   }
 
   async setEncryptionKey ( password ) {
@@ -29,7 +58,6 @@ class TOTPManager {
     await chrome.storage.local.set( { keyCheck: derivedKey } );
     this.encryptionKey = password;
 
-    // Store the key in the background script
     await chrome.runtime.sendMessage( {
       type: 'setEncryptionKey',
       key: password
@@ -37,7 +65,10 @@ class TOTPManager {
 
     await this.loadServices();
     document.getElementById( 'keyStatus' ).textContent = 'Key set successfully';
+    this.updateUIState();
   }
+
+
 
   async startKeepAlive () {
     // Clear any existing keepAlive connections
@@ -87,22 +118,17 @@ class TOTPManager {
   }
 
   async resetAll () {
-    // Clear storages
     await chrome.storage.local.clear();
     await chrome.storage.sync.clear();
+    await this.clearSessionKey();
 
-    // Clear memory
     this.services = [];
-    this.encryptionKey = null;
-
-    // Clear UI
-    document.getElementById( 'serviceSelect' ).innerHTML = '';
+    document.getElementById( 'serviceSelect' ).innerHTML = '<option value="">Select a service</option>';
     document.getElementById( 'totpCode' ).textContent = '';
     document.getElementById( 'timeRemaining' ).textContent = '';
-    document.getElementById( 'encryptionKey' ).value = '';
 
-    // Reset key status
     await this.checkEncryptionKey();
+    this.updateUIState();
   }
 
   async getOrCreateKey () {
@@ -285,6 +311,10 @@ class TOTPManager {
         width: 400,
         height: 300
       } );
+    } );
+
+    document.getElementById( 'clearKey' ).addEventListener( 'click', () => {
+      this.clearSessionKey();
     } );
 
     // Listen for imported services
