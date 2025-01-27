@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <style>
+    body {
+      width: 300px;
+      padding: 10px;
+      font-family: Arial, sans-serif;
+    }
+
+    .container {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    #totpCode {
+      font-size: 24px;
+      text-align: center;
+      margin: 10px 0;
+      font-family: monospace;
+    }
+
+    .button {
+      padding: 8px;
+      cursor: pointer;
+    }
+
+    #importSection {
+      margin-top: 10px;
+      padding-top: 10px;
+      border-top: 1px solid #ccc;
+    }
+  </style>
+</head>
+
+<body>
+  <div class="container">
+    <input type="password" id="encryptionKey" placeholder="Enter encryption key">
+    <button id="setKey">Set Key</button>
+    <button id="resetAll" class="danger">Reset All</button>
+    <div id="keyStatus"></div>
+    <hr />
+    <select id="serviceSelect">
+      <option value="">Select a service</option>
+    </select>
+    <div id="totpCode"></div>
+    <span id="timeRemaining"></span>
+    <button id="copyButton" class="button">Copy to Clipboard</button>
+
+    <div id="importSection">
+      <input type="file" id="importFile" style="display: none" accept=".json">
+      <button id="importTrigger">Import</button>
+      <button id="importButton" class="button">Import Services</button>
+    </div>
+  </div>
+  <script src="lib/jsOTP.min.js"></script>
+  <script src="popup.js"></script>
+</body>
+
+</html>

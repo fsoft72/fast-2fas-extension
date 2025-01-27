@@ -1,0 +1,16 @@
+{
+  "manifest_version": 3,
+  "name": "Fast 2FA",
+  "version": "1.0",
+  "description": "Generate TOTP codes for 2FA authentication",
+  "permissions": [
+    "storage",
+    "clipboardWrite"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "action": {
+    "default_popup": "popup.html"
+  }
+}
