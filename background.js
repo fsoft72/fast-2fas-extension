@@ -1,5 +1,7 @@
 let keepAlivePort = null;
+let encryptionKey = null;
 
+// Listen for port connections
 chrome.runtime.onConnect.addListener( ( port ) => {
 	if ( port.name === 'keepAlive' ) {
 		keepAlivePort = port;
@@ -9,15 +11,41 @@ chrome.runtime.onConnect.addListener( ( port ) => {
 	}
 } );
 
+// Handle messages
 chrome.runtime.onMessage.addListener( ( message, sender, sendResponse ) => {
 	if ( message.type === 'importServices' ) {
-		// Forward the imported services to the popup
 		chrome.runtime.sendMessage( {
 			type: 'servicesImported',
 			services: message.services
 		} );
 		sendResponse( { status: 'success' } );
 		return true;
+	} else if ( message.type === 'setEncryptionKey' ) {
+		encryptionKey = message.key;
+		sendResponse( { status: 'success' } );
+		return true;
+	} else if ( message.type === 'getEncryptionKey' ) {
+		sendResponse( { key: encryptionKey } );
+		return true;
 	}
 	return false;
+} );
+
+// Clear encryption key when browser is closed or last window is closed
+chrome.windows.onRemoved.addListener( () => {
+	chrome.windows.getAll( {}, ( windows ) => {
+		if ( windows.length === 0 ) {
+			encryptionKey = null;
+		}
+	} );
+} );
+
+// Handle extension startup, reset key
+chrome.runtime.onStartup.addListener( () => {
+	encryptionKey = null;
+} );
+
+// Handle extension install or update
+chrome.runtime.onInstalled.addListener( () => {
+	encryptionKey = null;
 } );

@@ -9,8 +9,34 @@ class TOTPManager {
     this.keepAliveInterval = null;
 
     this.setupEventListeners();
-    this.loadServices();
-    this.checkEncryptionKey();
+    this.initialize();
+  }
+
+  async initialize () {
+    // Try to get the stored key first
+    const response = await chrome.runtime.sendMessage( { type: 'getEncryptionKey' } );
+    if ( response.key ) {
+      this.encryptionKey = response.key;
+      document.getElementById( 'keyStatus' ).textContent = 'Key loaded from session';
+      await this.loadServices();
+    } else {
+      await this.checkEncryptionKey();
+    }
+  }
+
+  async setEncryptionKey ( password ) {
+    const derivedKey = await this.deriveKey( password );
+    await chrome.storage.local.set( { keyCheck: derivedKey } );
+    this.encryptionKey = password;
+
+    // Store the key in the background script
+    await chrome.runtime.sendMessage( {
+      type: 'setEncryptionKey',
+      key: password
+    } );
+
+    await this.loadServices();
+    document.getElementById( 'keyStatus' ).textContent = 'Key set successfully';
   }
 
   async startKeepAlive () {
@@ -145,12 +171,6 @@ class TOTPManager {
     return stored.keyCheck === derivedKey;
   }
 
-  async setEncryptionKey ( password ) {
-    const derivedKey = await this.deriveKey( password );
-    await chrome.storage.local.set( { keyCheck: derivedKey } );
-    this.encryptionKey = password;
-    await this.loadServices();
-  }
 
   async saveServices () {
     if ( !this.encryptionKey ) return;
