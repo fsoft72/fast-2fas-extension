@@ -257,10 +257,7 @@ class TOTPManager {
   }
 
   setupEventListeners () {
-    const fileInput = document.getElementById( 'importFile' );
-    const importTrigger = document.getElementById( 'importTrigger' );
-
-    // Modify the import trigger to open a new window
+    // Import handler
     document.getElementById( 'importTrigger' ).addEventListener( 'click', () => {
       chrome.windows.create( {
         url: 'import.html',
@@ -293,58 +290,7 @@ class TOTPManager {
       }
     } );
 
-    fileInput.addEventListener( 'change', async ( e ) => {
-      e.stopPropagation();
-      e.preventDefault();
-
-      const file = e.target.files[ 0 ];
-      if ( !file ) {
-        this.stopKeepAlive();
-        return;
-      }
-
-      importTrigger.disabled = true;
-      importTrigger.textContent = 'Importing...';
-
-      try {
-        const reader = new FileReader();
-        const fileContents = await new Promise( ( resolve, reject ) => {
-          reader.onload = () => resolve( reader.result );
-          reader.onerror = () => reject( reader.error );
-          reader.readAsText( file );
-        } );
-
-        const importedData = JSON.parse( fileContents );
-        if ( !importedData.services || !Array.isArray( importedData.services ) ) {
-          throw new Error( 'Invalid format: missing services array' );
-        }
-
-        this.services = importedData.services.map( service => ( {
-          name: service.name,
-          secret: service.secret,
-          otp: {
-            label: service.otp.label || service.otp.account || service.name,
-            digits: service.otp.digits || 6,
-            period: service.otp.period || 30,
-            algorithm: service.otp.algorithm || 'SHA1'
-          }
-        } ) );
-
-        await this.saveServices();
-        this.updateServicesList();
-        alert( 'Services imported successfully' );
-
-      } catch ( error ) {
-        console.error( 'Import failed:', error );
-        alert( 'Failed to import services: ' + error.message );
-      } finally {
-        importTrigger.disabled = false;
-        importTrigger.textContent = 'Import';
-        fileInput.value = '';
-        this.stopKeepAlive();
-      }
-    } );
-
+    // Service selection handler
     document.getElementById( 'serviceSelect' ).addEventListener( 'change', ( e ) => {
       if ( e.target.value === '' ) {
         document.getElementById( 'totpCode' ).textContent = '';
@@ -359,17 +305,7 @@ class TOTPManager {
       this.startTokenRefresh( e.target.value );
     } );
 
-    document.getElementById( 'serviceSelect' ).addEventListener( 'change', ( e ) => {
-      if ( e.target.value === '' ) {
-        document.getElementById( 'totpCode' ).textContent = '';
-        return;
-      }
-
-      const service = this.services[ e.target.value ];
-      const code = this.generateTOTP( service.secret );
-      document.getElementById( 'totpCode' ).textContent = code;
-    } );
-
+    // Copy button handler
     document.getElementById( 'copyButton' ).addEventListener( 'click', () => {
       const code = document.getElementById( 'totpCode' ).textContent;
       if ( code ) {

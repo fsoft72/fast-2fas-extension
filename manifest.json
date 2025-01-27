@@ -5,7 +5,8 @@
   "description": "Generate TOTP codes for 2FA authentication",
   "permissions": [
     "storage",
-    "clipboardWrite"
+    "clipboardWrite",
+    "windows"
   ],
   "background": {
     "service_worker": "background.js"
