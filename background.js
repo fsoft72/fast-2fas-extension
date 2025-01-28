@@ -1,3 +1,4 @@
+// background.js
 let keepAlivePort = null;
 let encryptionKey = null;
 
@@ -22,10 +23,28 @@ chrome.runtime.onMessage.addListener( ( message, sender, sendResponse ) => {
 		return true;
 	} else if ( message.type === 'setEncryptionKey' ) {
 		encryptionKey = message.key;
+		// Store key in local storage for persistence
+		chrome.storage.local.set( { sessionKey: message.key } );
 		sendResponse( { status: 'success' } );
 		return true;
 	} else if ( message.type === 'getEncryptionKey' ) {
-		sendResponse( { key: encryptionKey } );
+		// First try to get from memory
+		if ( encryptionKey ) {
+			sendResponse( { key: encryptionKey } );
+			return true;
+		}
+		// If not in memory, try to get from storage
+		chrome.storage.local.get( 'sessionKey', ( result ) => {
+			if ( result.sessionKey ) {
+				encryptionKey = result.sessionKey;
+			}
+			sendResponse( { key: encryptionKey } );
+		} );
+		return true;
+	} else if ( message.type === 'clearEncryptionKey' ) {
+		encryptionKey = null;
+		chrome.storage.local.remove( 'sessionKey' );
+		sendResponse( { status: 'success' } );
 		return true;
 	}
 	return false;
@@ -36,16 +55,21 @@ chrome.windows.onRemoved.addListener( () => {
 	chrome.windows.getAll( {}, ( windows ) => {
 		if ( windows.length === 0 ) {
 			encryptionKey = null;
+			chrome.storage.local.remove( 'sessionKey' );
 		}
 	} );
 } );
 
-// Handle extension startup, reset key
-chrome.runtime.onStartup.addListener( () => {
-	encryptionKey = null;
+// Handle extension startup, try to restore key from storage
+chrome.runtime.onStartup.addListener( async () => {
+	const result = await chrome.storage.local.get( 'sessionKey' );
+	if ( result.sessionKey ) {
+		encryptionKey = result.sessionKey;
+	}
 } );
 
 // Handle extension install or update
 chrome.runtime.onInstalled.addListener( () => {
 	encryptionKey = null;
+	chrome.storage.local.remove( 'sessionKey' );
 } );

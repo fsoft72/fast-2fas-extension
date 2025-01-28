@@ -30,11 +30,11 @@ class TOTPManager {
     }
   }
 
+
   async clearSessionKey () {
     this.encryptionKey = null;
     await chrome.runtime.sendMessage( {
-      type: 'setEncryptionKey',
-      key: null
+      type: 'clearEncryptionKey'
     } );
     document.getElementById( 'encryptionKey' ).value = '';
     document.getElementById( 'keyStatus' ).textContent = 'Session key cleared';
@@ -47,10 +47,11 @@ class TOTPManager {
       this.encryptionKey = response.key;
       document.getElementById( 'keyStatus' ).textContent = 'Key loaded from session';
       await this.loadServices();
+      this.updateUIState();
     } else {
       await this.checkEncryptionKey();
+      this.updateUIState();
     }
-    this.updateUIState();
   }
 
   async setEncryptionKey ( password ) {
@@ -66,9 +67,8 @@ class TOTPManager {
     await this.loadServices();
     document.getElementById( 'keyStatus' ).textContent = 'Key set successfully';
     this.updateUIState();
+    this.startKeepAlive(); // Start the keepalive connection when setting the key
   }
-
-
 
   async startKeepAlive () {
     // Clear any existing keepAlive connections
