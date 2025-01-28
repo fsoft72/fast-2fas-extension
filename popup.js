@@ -356,10 +356,32 @@ class TOTPManager {
     } );
 
     // Copy button handler
+    /*
     document.getElementById( 'copyButton' ).addEventListener( 'click', () => {
       const code = document.getElementById( 'totpCode' ).textContent;
       if ( code ) {
         navigator.clipboard.writeText( code );
+      }
+    } );
+     */
+
+    const handleSetKey = async () => {
+      const password = document.getElementById( 'encryptionKey' ).value;
+      if ( !password ) return;
+
+      const isValid = await this.verifyKey( password );
+      if ( isValid ) {
+        await this.setEncryptionKey( password );
+        document.getElementById( 'keyStatus' ).textContent = 'Key set successfully';
+      } else {
+        document.getElementById( 'keyStatus' ).textContent = 'Invalid key';
+      }
+    };
+
+    document.getElementById( 'encryptionKey' ).addEventListener( 'keypress', async ( e ) => {
+      if ( e.key === 'Enter' ) {
+        e.preventDefault();
+        await handleSetKey();
       }
     } );
 

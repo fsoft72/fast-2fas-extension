@@ -4,15 +4,11 @@
 <head>
   <style>
     body {
-      width: 300px;
-      padding: 10px;
+      width: 400px;
       font-family: Arial, sans-serif;
-    }
+      margin: 0;
+      padding: 0;
 
-    .container {
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
     }
 
     #totpCode {
@@ -20,6 +16,11 @@
       text-align: center;
       margin: 10px 0;
       font-family: monospace;
+
+      background-color: #ccc;
+      border: 1px solid black;
+      border-radius: 4px;
+      padding: 8px;
     }
 
     .button {
@@ -43,11 +44,6 @@
       margin-bottom: 10px;
     }
 
-    #mainContent {
-      opacity: 1;
-      transition: opacity 0.3s ease;
-    }
-
     #mainContent.hidden {
       opacity: 0;
     }
@@ -57,6 +53,77 @@
       border: 1px solid #dee2e6;
       color: #212529;
     }
+
+    .description {
+      margin-bottom: 10px;
+      font-size: 90%;
+    }
+
+    .master-password {
+      margin-bottom: 10px;
+    }
+
+    #keyStatus {
+      padding: 8px;
+      border: 1px solid #333;
+      border-radius: 4px;
+
+      background-color: #f99;
+
+    }
+
+    input {
+      padding: 8px;
+      border: 0px;
+      border-radius: 4px;
+    }
+
+    button {
+      padding: 8px;
+      border: 0px;
+      border-radius: 4px;
+      background-color: #007bff;
+      color: white;
+      cursor: pointer;
+    }
+
+    .danger {
+      background-color: #e25e0b !important;
+    }
+
+    .container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+
+      background-color: #7a7ba1;
+
+      min-height: 200px;
+
+      border: 1px solid red;
+      margin: 0;
+
+      padding: 10px;
+    }
+
+    #mainContent {
+      opacity: 1;
+      transition: opacity 0.3s ease;
+
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+
+      border: 1px dotted blue;
+    }
+
+    select {
+      max-width: 90%;
+      padding: 8px;
+    }
   </style>
 </head>
 
@@ -64,11 +131,19 @@
   <div class="container">
     <div id="keySection">
       <div id="keyRequestSection">
-        <input type="password" id="encryptionKey" placeholder="Enter encryption key">
-        <button id="setKey">Set Key</button>
+        <h1>Fast 2FA</h1>
+        <div class="master-password">
+          <input type="password" id="encryptionKey" placeholder="Enter master password" focus>
+          <button id="setKey">Set Key</button>
+        </div>
+
+        <div class="description">Fast 2FA requires a master password to encrypt your 2FA secrets. This password is not
+          stored anywhere and is only used to encrypt and decrypt your secrets.
+        </div>
+
         <div id="keyStatus"></div>
       </div>
-      <button id="clearKey" class="button hidden">Clear Session Key</button>
+      <button id="clearKey" class="button danger hidden">Clear Session Key</button>
     </div>
 
     <div id="mainContent" class="hidden">
@@ -77,7 +152,9 @@
       </select>
       <div id="totpCode"></div>
       <span id="timeRemaining"></span>
+      <!--
       <button id="copyButton" class="button">Copy to Clipboard</button>
+    -->
 
       <div id="importSection">
         <button id="importTrigger">Import</button>
