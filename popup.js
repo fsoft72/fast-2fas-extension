@@ -26,7 +26,6 @@ class TOTPManager {
   }
 
   // Removed clearSessionKey method
-
   async initialize () {
     // Removed check for cached key from background script
     await this.checkEncryptionKey(); // Check if a key needs to be set or entered
@@ -59,7 +58,6 @@ class TOTPManager {
 
   // Removed startKeepAlive and stopKeepAlive methods
   // Moved methods back inside the class
-
   async checkEncryptionKey () {
     const stored = await chrome.storage.local.get( 'keyCheck' );
     const keyStatusEl = document.getElementById( 'keyStatus' );

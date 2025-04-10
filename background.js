@@ -1,3 +1,4 @@
+// background.js
 let keepAlivePort = null;
 
 // Listen for port connections
@@ -24,4 +25,21 @@ chrome.runtime.onMessage.addListener( ( message, sender, sendResponse ) => {
 	return false;
 } );
 
-// Removed listeners that cleared the encryptionKey
+// Clear encryption key when browser is closed or last window is closed
+chrome.windows.onRemoved.addListener( () => {
+	chrome.windows.getAll( {}, ( windows ) => {
+		if ( windows.length === 0 ) {
+			encryptionKey = null;
+		}
+	} );
+} );
+
+// Handle extension startup, reset key
+chrome.runtime.onStartup.addListener( () => {
+	encryptionKey = null;
+} );
+
+// Handle extension install or update
+chrome.runtime.onInstalled.addListener( () => {
+	encryptionKey = null;
+} );
