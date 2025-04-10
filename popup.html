@@ -3,126 +3,324 @@
 
 <head>
   <style>
+    :root {
+      --bg-color: #f4f7f6;
+      --container-bg: #ffffff;
+      --text-color: #333;
+      --primary-color: #007bff;
+      --primary-hover: #0056b3;
+      --secondary-text: #6c757d;
+      --border-color: #e0e0e0;
+      --input-bg: #fff;
+      --input-border: #ccc;
+      --input-focus-border: #007bff;
+      --input-focus-shadow: rgba(0, 123, 255, 0.25);
+      --button-text: #ffffff;
+      --danger-bg: #dc3545;
+      --danger-hover: #c82333;
+      --status-neutral-bg: #e9ecef;
+      --status-neutral-text: #495057;
+      --status-success-bg: #d4edda;
+      --status-success-border: #c3e6cb;
+      --status-success-text: #155724;
+      --status-error-bg: #f8d7da;
+      --status-error-border: #f5c6cb;
+      --status-error-text: #721c24;
+      --status-info-bg: #cce5ff;
+      --status-info-border: #b8daff;
+      --status-info-text: #004085;
+      --totp-bg: #e9ecef;
+      --totp-border: #ced4da;
+      --totp-text: #0056b3;
+      --shadow-color: rgba(0, 0, 0, 0.1);
+    }
+
     body {
-      width: 400px;
-      font-family: Arial, sans-serif;
+      width: 350px;
+      /* Slightly narrower */
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      /* Modern font stack */
       margin: 0;
       padding: 0;
-
-    }
-
-    #totpCode {
-      font-size: 24px;
-      text-align: center;
-      margin: 10px 0;
-      font-family: monospace;
-
-      background-color: #ccc;
-      border: 1px solid black;
-      border-radius: 4px;
-      padding: 8px;
-    }
-
-    .button {
-      padding: 8px;
-      cursor: pointer;
-    }
-
-    #importSection {
-      margin-top: 10px;
-      padding-top: 10px;
-      border-top: 1px solid #ccc;
-    }
-
-    .hidden {
-      display: none !important;
-    }
-
-    #keySection {
-      border-bottom: 1px solid #ccc;
-      padding-bottom: 10px;
-      margin-bottom: 10px;
-    }
-
-    #mainContent.hidden {
-      opacity: 0;
-    }
-
-    #clearKey {
-      background-color: #f8f9fa;
-      border: 1px solid #dee2e6;
-      color: #212529;
-    }
-
-    .description {
-      margin-bottom: 10px;
-      font-size: 90%;
-    }
-
-    .master-password {
-      margin-bottom: 10px;
-    }
-
-    #keyStatus {
-      padding: 8px;
-      border: 1px solid #333;
-      border-radius: 4px;
-
-      background-color: #f99;
-
-    }
-
-    input {
-      padding: 8px;
-      border: 0px;
-      border-radius: 4px;
-    }
-
-    button {
-      padding: 8px;
-      border: 0px;
-      border-radius: 4px;
-      background-color: #007bff;
-      color: white;
-      cursor: pointer;
-    }
-
-    .danger {
-      background-color: #e25e0b !important;
+      background-color: var(--bg-color);
+      color: var(--text-color);
     }
 
     .container {
       display: flex;
       flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 10px;
-
-      background-color: #7a7ba1;
-
+      align-items: stretch;
+      /* Stretch items to fill width */
+      justify-content: flex-start;
+      /* Align items to top */
+      gap: 15px;
+      /* Increased gap */
+      background-color: var(--container-bg);
       min-height: 200px;
-
-      border: 1px solid red;
       margin: 0;
-
-      padding: 10px;
+      padding: 20px;
+      /* More padding */
+      box-shadow: 0 2px 5px var(--shadow-color);
+      border-radius: 8px;
+      /* Rounded corners */
     }
+
+    h1 {
+      text-align: center;
+      color: var(--primary-hover);
+      /* Using hover color for title */
+      margin-top: 0;
+      margin-bottom: 15px;
+      font-size: 1.5em;
+    }
+
+    #keySection,
+    #mainContent {
+      width: 100%;
+      /* Ensure sections take full width */
+      box-sizing: border-box;
+      /* Include padding in width */
+    }
+
+    #keySection {
+      padding-bottom: 15px;
+      margin-bottom: 15px;
+      border-bottom: 1px solid var(--border-color);
+    }
+
+    .master-password {
+      display: flex;
+      /* Align input and button */
+      gap: 8px;
+      margin-bottom: 15px;
+      /* Increased margin */
+    }
+
+    input[type="password"],
+    select {
+      flex-grow: 1;
+      /* Allow input/select to grow */
+      padding: 10px;
+      /* More padding */
+      border: 1px solid var(--input-border);
+      border-radius: 4px;
+      font-size: 1em;
+      background-color: var(--input-bg);
+      color: var(--text-color);
+    }
+
+    input[type="password"]:focus,
+    select:focus {
+      border-color: var(--input-focus-border);
+      outline: none;
+      box-shadow: 0 0 0 2px var(--input-focus-shadow);
+    }
+
+    button {
+      padding: 10px 15px;
+      /* More padding */
+      border: none;
+      /* Remove border */
+      border-radius: 4px;
+      background-color: var(--primary-color);
+      color: var(--button-text);
+      cursor: pointer;
+      font-size: 1em;
+      transition: background-color 0.2s ease;
+      /* Smooth transition */
+    }
+
+    button:hover {
+      background-color: var(--primary-hover);
+    }
+
+    .danger {
+      background-color: var(--danger-bg) !important;
+    }
+
+    .danger:hover {
+      background-color: var(--danger-hover) !important;
+    }
+
+    .description {
+      margin-bottom: 15px;
+      /* Increased margin */
+      font-size: 0.9em;
+      /* Slightly smaller */
+      color: var(--secondary-text);
+      text-align: center;
+      line-height: 1.4;
+    }
+
+    #keyStatus {
+      padding: 10px;
+      /* More padding */
+      border: 1px solid transparent;
+      /* Keep space, hide border initially */
+      border-radius: 4px;
+      text-align: center;
+      font-weight: bold;
+      margin-top: 10px;
+      background-color: var(--status-neutral-bg);
+      color: var(--status-neutral-text);
+    }
+
+    /* Specific status styles (can be added dynamically via JS if needed) */
+    #keyStatus.success {
+      background-color: var(--status-success-bg);
+      border-color: var(--status-success-border);
+      color: var(--status-success-text);
+    }
+
+    #keyStatus.error {
+      background-color: var(--status-error-bg);
+      border-color: var(--status-error-border);
+      color: var(--status-error-text);
+    }
+
+    #keyStatus.info {
+      /* For 'Enter key' or 'Set key' */
+      background-color: var(--status-info-bg);
+      border-color: var(--status-info-border);
+      color: var(--status-info-text);
+    }
+
 
     #mainContent {
       opacity: 1;
       transition: opacity 0.3s ease;
-
       display: flex;
       flex-direction: column;
-      align-items: center;
-      gap: 10px;
-
-      border: 1px dotted blue;
+      align-items: stretch;
+      /* Stretch items */
+      gap: 15px;
+      /* Consistent gap */
+      /* Removed debug border */
     }
 
-    select {
-      max-width: 90%;
-      padding: 8px;
+    #mainContent.hidden {
+      display: none !important;
+      /* Use display none instead of opacity for hidden */
+    }
+
+    #serviceSelect {
+      width: 100%;
+      /* Full width */
+      box-sizing: border-box;
+    }
+
+    #totpCode {
+      font-size: 2em;
+      /* Larger code */
+      text-align: center;
+      margin: 10px 0;
+      font-family: 'Courier New', Courier, monospace;
+      /* Monospace font */
+      background-color: var(--totp-bg);
+      border: 1px solid var(--totp-border);
+      border-radius: 4px;
+      padding: 15px;
+      /* More padding */
+      color: var(--totp-text);
+      letter-spacing: 2px;
+      /* Spacing between digits */
+    }
+
+    #timeRemaining {
+      text-align: center;
+      font-size: 0.9em;
+      color: var(--secondary-text);
+    }
+
+    #importSection {
+      margin-top: 15px;
+      /* Increased margin */
+      padding-top: 15px;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      /* Align items */
+      justify-content: space-between;
+      /* Space out buttons */
+      align-items: center;
+    }
+
+    /* General button class for consistency if needed */
+    .button {
+      padding: 10px 15px;
+      cursor: pointer;
+      border-radius: 4px;
+      border: none;
+      font-size: 1em;
+      transition: background-color 0.2s ease;
+    }
+
+    /* Hide elements cleanly */
+    .hidden {
+      display: none !important;
+    }
+
+    /* Dark Mode Styles */
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg-color: #202124;
+        /* Dark grey background */
+        --container-bg: #2d2e30;
+        /* Slightly lighter container */
+        --text-color: #e8eaed;
+        /* Light grey text */
+        --primary-color: #8ab4f8;
+        /* Lighter blue for primary */
+        --primary-hover: #aecbfa;
+        /* Even lighter blue for hover */
+        --secondary-text: #9aa0a6;
+        /* Medium grey for secondary text */
+        --border-color: #3c4043;
+        /* Darker border */
+        --input-bg: #3c4043;
+        /* Dark input background */
+        --input-border: #5f6368;
+        /* Medium grey input border */
+        --input-focus-border: #8ab4f8;
+        /* Lighter blue focus border */
+        --input-focus-shadow: rgba(138, 180, 248, 0.3);
+        /* Lighter blue focus shadow */
+        --button-text: #202124;
+        /* Dark text on light buttons */
+        --danger-bg: #f28b82;
+        /* Lighter red for danger */
+        --danger-hover: #f6aea9;
+        /* Even lighter red for hover */
+        --status-neutral-bg: #3c4043;
+        --status-neutral-text: #bdc1c6;
+        --status-success-bg: #34a853;
+        /* Darker green */
+        --status-success-border: #5f6368;
+        --status-success-text: #e8eaed;
+        --status-error-bg: #ea4335;
+        /* Darker red */
+        --status-error-border: #5f6368;
+        --status-error-text: #e8eaed;
+        --status-info-bg: #4285f4;
+        /* Darker blue */
+        --status-info-border: #5f6368;
+        --status-info-text: #e8eaed;
+        --totp-bg: #3c4043;
+        --totp-border: #5f6368;
+        --totp-text: #8ab4f8;
+        /* Lighter blue TOTP text */
+        --shadow-color: rgba(0, 0, 0, 0.3);
+        /* Darker shadow */
+      }
+
+      /* Ensure button text is readable in dark mode */
+      button {
+        color: var(--button-text);
+      }
+
+      button.danger {
+        color: var(--button-text);
+        /* Ensure danger button text is also readable */
+      }
     }
   </style>
 </head>
@@ -143,7 +341,7 @@
 
         <div id="keyStatus"></div>
       </div>
-      <button id="clearKey" class="button danger hidden">Clear Session Key</button>
+      <!-- Removed Clear Session Key button -->
     </div>
 
     <div id="mainContent" class="hidden">

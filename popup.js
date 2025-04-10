@@ -4,9 +4,7 @@ class TOTPManager {
   constructor() {
     this.services = [];
     this.totp = new jsOTP.totp();
-    this.encryptionKey = null;
-    this.keepAlivePort = null;
-    this.keepAliveInterval = null;
+    this.isUnlocked = false; // New state variable
 
     this.setupEventListeners();
     this.initialize();
@@ -14,97 +12,63 @@ class TOTPManager {
 
   updateUIState () {
     const keyRequestSection = document.getElementById( 'keyRequestSection' );
-    const clearKeyButton = document.getElementById( 'clearKey' );
     const mainContent = document.getElementById( 'mainContent' );
 
-    if ( this.encryptionKey ) {
-      // Key is set
+    if ( this.isUnlocked ) {
+      // App is unlocked
       keyRequestSection.classList.add( 'hidden' );
-      clearKeyButton.classList.remove( 'hidden' );
       mainContent.classList.remove( 'hidden' );
     } else {
-      // No key set
+      // App is locked
       keyRequestSection.classList.remove( 'hidden' );
-      clearKeyButton.classList.add( 'hidden' );
       mainContent.classList.add( 'hidden' );
     }
   }
 
-  async clearSessionKey () {
-    this.encryptionKey = null;
-    await chrome.runtime.sendMessage( {
-      type: 'setEncryptionKey',
-      key: null
-    } );
-    document.getElementById( 'encryptionKey' ).value = '';
-    document.getElementById( 'keyStatus' ).textContent = 'Session key cleared';
-    this.updateUIState();
-  }
+  // Removed clearSessionKey method
 
   async initialize () {
-    const response = await chrome.runtime.sendMessage( { type: 'getEncryptionKey' } );
-    if ( response.key ) {
-      this.encryptionKey = response.key;
-      document.getElementById( 'keyStatus' ).textContent = 'Key loaded from session';
-      await this.loadServices();
+    // Removed check for cached key from background script
+    await this.checkEncryptionKey(); // Check if a key needs to be set or entered
+    this.updateUIState(); // Initial UI state (locked)
+  }
+
+  // Renamed from setEncryptionKey, removed caching logic
+  async unlockApp ( password ) {
+    // Key is already verified by the caller (handleSetKey)
+    // We don't store the password itself anymore
+
+    // Check if this is the first time setting the key
+    const stored = await chrome.storage.local.get( 'keyCheck' );
+    if ( !stored.keyCheck ) {
+      const derivedKey = await this.deriveKey( password );
+      await chrome.storage.local.set( { keyCheck: derivedKey } );
+      const keyStatusEl = document.getElementById( 'keyStatus' );
+      keyStatusEl.textContent = 'New key set successfully!';
+      keyStatusEl.className = 'success'; // Add success class
     } else {
-      await this.checkEncryptionKey();
+      const keyStatusEl = document.getElementById( 'keyStatus' );
+      keyStatusEl.textContent = 'Key verified successfully';
+      keyStatusEl.className = 'success'; // Add success class
     }
-    this.updateUIState();
+
+    this.isUnlocked = true;
+    await this.loadServices(); // Load services now that we are unlocked
+    this.updateUIState(); // Update UI to show main content
   }
 
-  async setEncryptionKey ( password ) {
-    const derivedKey = await this.deriveKey( password );
-    await chrome.storage.local.set( { keyCheck: derivedKey } );
-    this.encryptionKey = password;
-
-    await chrome.runtime.sendMessage( {
-      type: 'setEncryptionKey',
-      key: password
-    } );
-
-    await this.loadServices();
-    document.getElementById( 'keyStatus' ).textContent = 'Key set successfully';
-    this.updateUIState();
-  }
-
-
-
-  async startKeepAlive () {
-    // Clear any existing keepAlive connections
-    this.stopKeepAlive();
-
-    // Establish a long-lived connection
-    this.keepAlivePort = chrome.runtime.connect( { name: 'keepAlive' } );
-
-    // Set up a ping interval to keep the connection active
-    this.keepAliveInterval = setInterval( () => {
-      chrome.runtime.sendMessage( { keepAlive: true }, ( response ) => {
-        if ( chrome.runtime.lastError ) {
-          this.stopKeepAlive();
-        }
-      } );
-    }, 1000 );
-  }
-
-  stopKeepAlive () {
-    if ( this.keepAliveInterval ) {
-      clearInterval( this.keepAliveInterval );
-      this.keepAliveInterval = null;
-    }
-    if ( this.keepAlivePort ) {
-      this.keepAlivePort.disconnect();
-      this.keepAlivePort = null;
-    }
-    chrome.runtime.sendMessage( { keepAlive: false } );
-  }
+  // Removed startKeepAlive and stopKeepAlive methods
+  // Moved methods back inside the class
 
   async checkEncryptionKey () {
     const stored = await chrome.storage.local.get( 'keyCheck' );
+    const keyStatusEl = document.getElementById( 'keyStatus' );
     if ( stored.keyCheck ) {
-      document.getElementById( 'keyStatus' ).textContent = 'Enter key to unlock';
+      keyStatusEl.textContent = 'Enter key to unlock';
+      keyStatusEl.className = 'info'; // Add info class
     } else {
-      document.getElementById( 'keyStatus' ).textContent = 'Set new encryption key';
+      keyStatusEl.textContent = 'Set new encryption key';
+      keyStatusEl.className = 'info'; // Add info class
     }
   }
 
@@ -120,14 +84,16 @@ class TOTPManager {
   async resetAll () {
     await chrome.storage.local.clear();
     await chrome.storage.sync.clear();
-    await this.clearSessionKey();
+    // Removed call to clearSessionKey
 
+    this.isUnlocked = false; // Lock the app after reset
     this.services = [];
     document.getElementById( 'serviceSelect' ).innerHTML = '<option value="">Select a service</option>';
     document.getElementById( 'totpCode' ).textContent = '';
     document.getElementById( 'timeRemaining' ).textContent = '';
+    document.getElementById( 'keyStatus' ).className = ''; // Reset status class
 
-    await this.checkEncryptionKey();
+    await this.checkEncryptionKey(); // This will set the appropriate text and class
     this.updateUIState();
   }
 
@@ -199,7 +165,8 @@ class TOTPManager {
 
 
   async saveServices () {
-    if ( !this.encryptionKey ) return;
+    // Removed check for this.encryptionKey
+    // Should only be called when unlocked anyway
 
     // Clear existing chunks first
     await chrome.storage.sync.clear();
@@ -227,7 +194,8 @@ class TOTPManager {
   }
 
   async loadServices () {
-    if ( !this.encryptionKey ) return;
+    // Removed check for this.encryptionKey
+    // Should only be called when unlocked
 
     // Get metadata
     const { metadata } = await chrome.storage.sync.get( 'metadata' );
@@ -313,9 +281,7 @@ class TOTPManager {
       } );
     } );
 
-    document.getElementById( 'clearKey' ).addEventListener( 'click', () => {
-      this.clearSessionKey();
-    } );
+    // Removed clearKey button listener
 
     // Listen for imported services
     chrome.runtime.onMessage.addListener( async ( message ) => {
@@ -371,10 +337,12 @@ class TOTPManager {
 
       const isValid = await this.verifyKey( password );
       if ( isValid ) {
-        await this.setEncryptionKey( password );
-        document.getElementById( 'keyStatus' ).textContent = 'Key set successfully';
+        await this.unlockApp( password ); // Use the new unlock method
+        // Status text and class are set within unlockApp
       } else {
-        document.getElementById( 'keyStatus' ).textContent = 'Invalid key';
+        const keyStatusEl = document.getElementById( 'keyStatus' );
+        keyStatusEl.textContent = 'Invalid key';
+        keyStatusEl.className = 'error'; // Add error class
       }
     };
 
@@ -391,10 +359,12 @@ class TOTPManager {
 
       const isValid = await this.verifyKey( password );
       if ( isValid ) {
-        await this.setEncryptionKey( password );
-        document.getElementById( 'keyStatus' ).textContent = 'Key set successfully';
+        await this.unlockApp( password ); // Use the new unlock method
+        // Status text and class are set within unlockApp
       } else {
-        document.getElementById( 'keyStatus' ).textContent = 'Invalid key';
+        const keyStatusEl = document.getElementById( 'keyStatus' );
+        keyStatusEl.textContent = 'Invalid key';
+        keyStatusEl.className = 'error'; // Add error class
       }
     } );
 
@@ -404,8 +374,8 @@ class TOTPManager {
       }
     } );
 
-  }
-}
+  } // End of setupEventListeners method
+} // End of TOTPManager class
 
 // Initialize the TOTP manager when the popup opens
 document.addEventListener( 'DOMContentLoaded', () => {

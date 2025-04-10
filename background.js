@@ -1,5 +1,4 @@
 let keepAlivePort = null;
-let encryptionKey = null;
 
 // Listen for port connections
 chrome.runtime.onConnect.addListener( ( port ) => {
@@ -20,32 +19,9 @@ chrome.runtime.onMessage.addListener( ( message, sender, sendResponse ) => {
 		} );
 		sendResponse( { status: 'success' } );
 		return true;
-	} else if ( message.type === 'setEncryptionKey' ) {
-		encryptionKey = message.key;
-		sendResponse( { status: 'success' } );
-		return true;
-	} else if ( message.type === 'getEncryptionKey' ) {
-		sendResponse( { key: encryptionKey } );
-		return true;
 	}
+	// Removed setEncryptionKey and getEncryptionKey handlers
 	return false;
 } );
 
-// Clear encryption key when browser is closed or last window is closed
-chrome.windows.onRemoved.addListener( () => {
-	chrome.windows.getAll( {}, ( windows ) => {
-		if ( windows.length === 0 ) {
-			encryptionKey = null;
-		}
-	} );
-} );
-
-// Handle extension startup, reset key
-chrome.runtime.onStartup.addListener( () => {
-	encryptionKey = null;
-} );
-
-// Handle extension install or update
-chrome.runtime.onInstalled.addListener( () => {
-	encryptionKey = null;
-} );
+// Removed listeners that cleared the encryptionKey
