@@ -320,14 +320,10 @@ class TOTPManager {
     } );
 
     // Copy button handler
-    /*
     document.getElementById( 'copyButton' ).addEventListener( 'click', () => {
       const code = document.getElementById( 'totpCode' ).textContent;
-      if ( code ) {
-        navigator.clipboard.writeText( code );
-      }
+      if ( code ) navigator.clipboard.writeText( code );
     } );
-     */
 
     const handleSetKey = async () => {
       const password = document.getElementById( 'encryptionKey' ).value;

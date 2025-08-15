@@ -254,6 +254,24 @@
       transition: background-color 0.2s ease;
     }
 
+    .totpRow {
+      display: flex;
+      flex-direction: row;
+      justify-content: center;
+      align-items: flex-start;
+      margin-top: 15px;
+      gap: 2rem;
+      /* Increased margin */
+    }
+
+    .totp {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      justify-content: flex-start;
+      gap: 4px;
+    }
+
     /* Hide elements cleanly */
     .hidden {
       display: none !important;
@@ -348,11 +366,13 @@
       <select id="serviceSelect">
         <option value="">Select a service</option>
       </select>
-      <div id="totpCode"></div>
-      <span id="timeRemaining"></span>
-      <!--
-      <button id="copyButton" class="button">Copy to Clipboard</button>
-    -->
+      <div class="totpRow">
+        <div class="totp">
+          <div id="totpCode"></div>
+          <span id="timeRemaining"></span>
+        </div>
+        <button id="copyButton" class="button">Copy</button>
+      </div>
 
       <div id="importSection">
         <button id="importTrigger">Import</button>
