@@ -5,6 +5,7 @@ class TOTPManager {
     this.services = [];
     this.totp = new jsOTP.totp();
     this.isUnlocked = false; // New state variable
+    this.currentPassword = null; // Store current password for persistence
 
     this.setupEventListeners();
     this.initialize();
@@ -27,6 +28,24 @@ class TOTPManager {
 
   // Removed clearSessionKey method
   async initialize () {
+    // Check if there's a saved password in background script
+    const savedPassword = await this.getSavedPassword();
+    if ( savedPassword ) {
+      // Auto-unlock with saved password
+      const isValid = await this.verifyKey( savedPassword );
+      if ( isValid ) {
+        await this.unlockApp( savedPassword );
+        // Get remaining minutes and update the field
+        const remainingMinutes = await this.getRemainingMinutes();
+        if ( remainingMinutes > 0 ) {
+          document.getElementById( 'persistMinutes' ).value = remainingMinutes;
+          // Update expiration display
+          this.updateExpirationDisplay( remainingMinutes );
+        }
+        return;
+      }
+    }
+
     // Removed check for cached key from background script
     await this.checkEncryptionKey(); // Check if a key needs to be set or entered
     this.updateUIState(); // Initial UI state (locked)
@@ -35,7 +54,8 @@ class TOTPManager {
   // Renamed from setEncryptionKey, removed caching logic
   async unlockApp ( password ) {
     // Key is already verified by the caller (handleSetKey)
-    // We don't store the password itself anymore
+    // Store the password for potential persistence
+    this.currentPassword = password;
 
     // Check if this is the first time setting the key
     const stored = await chrome.storage.local.get( 'keyCheck' );
@@ -54,6 +74,14 @@ class TOTPManager {
     this.isUnlocked = true;
     await this.loadServices(); // Load services now that we are unlocked
     this.updateUIState(); // Update UI to show main content
+
+    // Check if we should save the password with timeout
+    const persistMinutes = parseInt( document.getElementById( 'persistMinutes' ).value ) || 0;
+    if ( persistMinutes > 0 ) {
+      await this.savePasswordWithTimeout( password, persistMinutes );
+      // Update expiration display
+      this.updateExpirationDisplay( persistMinutes );
+    }
   }
 
   // Removed startKeepAlive and stopKeepAlive methods
@@ -82,13 +110,17 @@ class TOTPManager {
   async resetAll () {
     await chrome.storage.local.clear();
     await chrome.storage.sync.clear();
-    // Removed call to clearSessionKey
+    // Clear saved password
+    await this.clearSavedPassword();
 
     this.isUnlocked = false; // Lock the app after reset
+    this.currentPassword = null; // Clear current password
     this.services = [];
     document.getElementById( 'serviceSelect' ).innerHTML = '<option value="">Select a service</option>';
     document.getElementById( 'totpCode' ).textContent = '';
     document.getElementById( 'timeRemaining' ).textContent = '';
+    document.getElementById( 'persistMinutes' ).value = '0'; // Reset persist minutes
+    this.updateExpirationDisplay( 0 ); // Hide expiration display
     document.getElementById( 'keyStatus' ).className = ''; // Reset status class
 
     await this.checkEncryptionKey(); // This will set the appropriate text and class
@@ -159,6 +191,58 @@ class TOTPManager {
 
     const derivedKey = await this.deriveKey( key );
     return stored.keyCheck === derivedKey;
+  }
+
+  async getSavedPassword () {
+    return new Promise( ( resolve ) => {
+      chrome.runtime.sendMessage( { type: 'getPassword' }, ( response ) => {
+        resolve( response?.password || null );
+      } );
+    } );
+  }
+
+  async getRemainingMinutes () {
+    return new Promise( ( resolve ) => {
+      chrome.runtime.sendMessage( { type: 'getRemainingMinutes' }, ( response ) => {
+        resolve( response?.minutes || 0 );
+      } );
+    } );
+  }
+
+  async savePasswordWithTimeout ( password, minutes ) {
+    chrome.runtime.sendMessage( {
+      type: 'savePassword',
+      password: password,
+      minutes: minutes
+    } );
+  }
+
+  async clearSavedPassword () {
+    chrome.runtime.sendMessage( { type: 'clearPassword' } );
+  }
+
+  formatExpirationTime ( minutes ) {
+    if ( minutes <= 0 ) return '';
+
+    const expiresAt = new Date( Date.now() + minutes * 60 * 1000 );
+    const year = expiresAt.getFullYear();
+    const month = String( expiresAt.getMonth() + 1 ).padStart( 2, '0' );
+    const day = String( expiresAt.getDate() ).padStart( 2, '0' );
+    const hours = String( expiresAt.getHours() ).padStart( 2, '0' );
+    const mins = String( expiresAt.getMinutes() ).padStart( 2, '0' );
+
+    return `Expires: ${ year }-${ month }-${ day } ${ hours }:${ mins }`;
+  }
+
+  updateExpirationDisplay ( minutes ) {
+    const expirationTimeEl = document.getElementById( 'expirationTime' );
+    if ( minutes > 0 ) {
+      expirationTimeEl.textContent = this.formatExpirationTime( minutes );
+      expirationTimeEl.classList.remove( 'hidden' );
+    } else {
+      expirationTimeEl.textContent = '';
+      expirationTimeEl.classList.add( 'hidden' );
+    }
   }
 
 
@@ -269,6 +353,23 @@ class TOTPManager {
   }
 
   setupEventListeners () {
+    // Password persistence handler
+    document.getElementById( 'persistMinutes' ).addEventListener( 'input', async ( e ) => {
+      const minutes = parseInt( e.target.value ) || 0;
+
+      if ( minutes > 0 && this.currentPassword && this.isUnlocked ) {
+        // Save password with timeout
+        await this.savePasswordWithTimeout( this.currentPassword, minutes );
+        // Update expiration display
+        this.updateExpirationDisplay( minutes );
+      } else {
+        // Clear saved password
+        await this.clearSavedPassword();
+        // Hide expiration display
+        this.updateExpirationDisplay( 0 );
+      }
+    } );
+
     // Import handler
     document.getElementById( 'importTrigger' ).addEventListener( 'click', () => {
       chrome.windows.create( {

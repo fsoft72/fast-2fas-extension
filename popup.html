@@ -232,6 +232,48 @@
       color: var(--secondary-text);
     }
 
+    #passwordPersistSection {
+      margin-top: 15px;
+      padding-top: 15px;
+      border-top: 1px solid var(--border-color);
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      gap: 8px;
+    }
+
+    #passwordPersistSection label {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 0.9em;
+      color: var(--secondary-text);
+    }
+
+    #expirationTime {
+      font-size: 0.85em;
+      color: var(--status-info-text);
+      font-style: italic;
+    }
+
+    #persistMinutes {
+      width: 60px;
+      padding: 5px;
+      border: 1px solid var(--input-border);
+      border-radius: 4px;
+      font-size: 0.9em;
+      background-color: var(--input-bg);
+      color: var(--text-color);
+      text-align: center;
+    }
+
+    #persistMinutes:focus {
+      border-color: var(--input-focus-border);
+      outline: none;
+      box-shadow: 0 0 0 2px var(--input-focus-shadow);
+    }
+
     #importSection {
       margin-top: 15px;
       /* Increased margin */
@@ -370,6 +412,11 @@
           <button id="copyButton" class="button hidden">Copy</button>
         </div>
         <div id="timeRemaining"></div>
+      </div>
+
+      <div id="passwordPersistSection">
+        <label for="persistMinutes">Save pwd for <input type="number" id="persistMinutes" min="0" max="1440" value="0"> minutes</label>
+        <div id="expirationTime" class="hidden"></div>
       </div>
 
       <div id="importSection">
