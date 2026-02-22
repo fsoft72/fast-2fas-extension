@@ -286,6 +286,20 @@
       align-items: center;
     }
 
+    .import-hint {
+      font-size: 0.8em;
+      color: var(--secondary-text);
+    }
+
+    .import-hint a {
+      color: var(--primary-color);
+      text-decoration: none;
+    }
+
+    .import-hint a:hover {
+      text-decoration: underline;
+    }
+
     /* General button class for consistency if needed */
     .button {
       padding: 10px 15px;
@@ -421,6 +435,7 @@
 
       <div id="importSection">
         <button id="importTrigger">Import</button>
+        <span class="import-hint">You can import settings from <a href="https://2fas.com/auth/" target="_blank">2FAS Auth</a></span>
       </div>
       <button id="resetAll" class="danger">Reset All</button>
     </div>
