@@ -4,101 +4,91 @@ class TOTPManager {
   constructor() {
     this.services = [];
     this.totp = new jsOTP.totp();
-    this.isUnlocked = false; // New state variable
-    this.currentPassword = null; // Store current password for persistence
+    this.isUnlocked = false;
+    this.aesKeyHex = null;
 
     this.setupEventListeners();
     this.initialize();
   }
 
+  /** Update the UI to reflect locked/unlocked state. */
   updateUIState () {
     const keyRequestSection = document.getElementById( 'keyRequestSection' );
     const mainContent = document.getElementById( 'mainContent' );
 
     if ( this.isUnlocked ) {
-      // App is unlocked
       keyRequestSection.classList.add( 'hidden' );
       mainContent.classList.remove( 'hidden' );
     } else {
-      // App is locked
       keyRequestSection.classList.remove( 'hidden' );
       mainContent.classList.add( 'hidden' );
     }
   }
 
-  // Removed clearSessionKey method
+  /**
+   * Initialize the app: check for a cached session key, or show the lock screen.
+   * If a session key is found, load services directly (no password re-verification needed).
+   */
   async initialize () {
-    // Check if there's a saved password in background script
-    const savedPassword = await this.getSavedPassword();
-    if ( savedPassword ) {
-      // Auto-unlock with saved password
-      const isValid = await this.verifyKey( savedPassword );
-      if ( isValid ) {
-        await this.unlockApp( savedPassword );
-        // Get remaining minutes and update the field
-        const remainingMinutes = await this.getRemainingMinutes();
-        if ( remainingMinutes > 0 ) {
-          document.getElementById( 'persistMinutes' ).value = remainingMinutes;
-          // Update expiration display
-          this.updateExpirationDisplay( remainingMinutes );
-        }
-        return;
-      }
-    }
+    const sessionKey = await this.getSessionKey();
+    if ( sessionKey ) {
+      this.aesKeyHex = sessionKey;
+      this.isUnlocked = true;
 
-    // Removed check for cached key from background script
-    await this.checkEncryptionKey(); // Check if a key needs to be set or entered
-    this.updateUIState(); // Initial UI state (locked)
-  }
-
-  // Renamed from setEncryptionKey, removed caching logic
-  async unlockApp ( password ) {
-    // Key is already verified by the caller (handleSetKey)
-    // Store the password for potential persistence
-    this.currentPassword = password;
-
-    // Check if this is the first time setting the key
-    const stored = await chrome.storage.local.get( 'keyCheck' );
-    if ( !stored.keyCheck ) {
-      const derivedKey = await this.deriveKey( password );
-      await chrome.storage.local.set( { keyCheck: derivedKey } );
-      const keyStatusEl = document.getElementById( 'keyStatus' );
-      keyStatusEl.textContent = 'New key set successfully!';
-      keyStatusEl.className = 'success'; // Add success class
-    } else {
       const keyStatusEl = document.getElementById( 'keyStatus' );
       keyStatusEl.textContent = 'Key verified successfully';
-      keyStatusEl.className = 'success'; // Add success class
+      keyStatusEl.className = 'success';
+
+      await this.loadServices();
+      this.updateUIState();
+
+      const remainingMinutes = await this.getRemainingMinutes();
+      if ( remainingMinutes > 0 ) {
+        document.getElementById( 'persistMinutes' ).value = remainingMinutes;
+        this.updateExpirationDisplay( remainingMinutes );
+      }
+      return;
     }
 
-    this.isUnlocked = true;
-    await this.loadServices(); // Load services now that we are unlocked
-    this.updateUIState(); // Update UI to show main content
-
-    // Check if we should save the password with timeout
-    const persistMinutes = parseInt( document.getElementById( 'persistMinutes' ).value ) || 0;
-    if ( persistMinutes > 0 ) {
-      await this.savePasswordWithTimeout( password, persistMinutes );
-      // Update expiration display
-      this.updateExpirationDisplay( persistMinutes );
-    }
+    await this.checkEncryptionKey();
+    this.updateUIState();
   }
 
-  // Removed startKeepAlive and stopKeepAlive methods
-  // Moved methods back inside the class
-  async checkEncryptionKey () {
-    const stored = await chrome.storage.local.get( 'keyCheck' );
-    const keyStatusEl = document.getElementById( 'keyStatus' );
-    if ( stored.keyCheck ) {
-      keyStatusEl.textContent = 'Enter key to unlock';
-      keyStatusEl.className = 'info'; // Add info class
-    } else {
-      keyStatusEl.textContent = 'Set new encryption key';
-      keyStatusEl.className = 'info'; // Add info class
+  /**
+   * Verify a password against stored credentials.
+   * Detects old format (encryptionKey + keyCheck) and triggers migration.
+   * For new format, derives keys via PBKDF2 and compares verifyHash.
+   * First-time setup (no verifyHash) returns true.
+   */
+  async verifyKey ( password ) {
+    const stored = await chrome.storage.local.get( [ 'encryptionKey', 'keyCheck', 'cryptoSalt', 'verifyHash' ] );
+
+    // Old format detected: migrate
+    if ( stored.encryptionKey && stored.keyCheck ) {
+      const oldHash = await this._legacySha256( password );
+      if ( stored.keyCheck !== oldHash ) return false;
+
+      await this.migrateFromOldFormat( password, stored.encryptionKey );
+      return true;
     }
+
+    // First-time setup: no verifyHash stored yet
+    if ( !stored.verifyHash ) return true;
+
+    // New format: PBKDF2 verification
+    const { verifyHash, aesKeyHex } = await deriveKeys( password, stored.cryptoSalt );
+    if ( verifyHash !== stored.verifyHash ) return false;
+
+    this.aesKeyHex = aesKeyHex;
+    return true;
   }
 
-  async deriveKey ( password ) {
+  /**
+   * Legacy SHA-256 hash for old-format password verification during migration.
+   * @param {string} password - The password to hash
+   * @returns {Promise<string>} Hex-encoded SHA-256 hash
+   */
+  async _legacySha256 ( password ) {
     const encoder = new TextEncoder();
     const data = encoder.encode( password );
     const hash = await crypto.subtle.digest( 'SHA-256', data );
@@ -107,100 +97,189 @@ class TOTPManager {
       .join( '' );
   }
 
+  /**
+   * Migrate from old encryption format (random AES key + SHA-256 keyCheck) to PBKDF2.
+   * Decrypts all services with old key, re-encrypts with new PBKDF2-derived key.
+   * Old keys are removed last so interruption retries next time.
+   * @param {string} password - The verified password
+   * @param {string} oldEncryptionKey - The old random AES key from storage
+   */
+  async migrateFromOldFormat ( password, oldEncryptionKey ) {
+    // Decrypt existing services with old key
+    const { metadata } = await chrome.storage.sync.get( 'metadata' );
+    let services = [];
+
+    if ( metadata ) {
+      let servicesJson = '';
+      for ( let i = 0; i < metadata.totalChunks; i++ ) {
+        const { [ `chunk_${ i }` ]: chunk } = await chrome.storage.sync.get( `chunk_${ i }` );
+        if ( !chunk ) continue;
+        servicesJson += await decryptData( chunk, oldEncryptionKey );
+      }
+      if ( servicesJson ) {
+        services = JSON.parse( servicesJson );
+      }
+    }
+
+    // Generate new PBKDF2-based keys
+    const cryptoSalt = generateSalt();
+    const { verifyHash, aesKeyHex } = await deriveKeys( password, cryptoSalt );
+    this.aesKeyHex = aesKeyHex;
+    this.services = services;
+
+    // Re-encrypt services with new key (uses write-then-cleanup via saveServices)
+    await this.saveServices();
+
+    // Store new credentials
+    await chrome.storage.local.set( { cryptoSalt, verifyHash } );
+
+    // Remove old keys last (atomic: interruption retries migration)
+    await chrome.storage.local.remove( [ 'encryptionKey', 'keyCheck' ] );
+  }
+
+  /**
+   * Unlock the app after password verification.
+   * First-time: generates salt and derives keys.
+   * Subsequent: aesKeyHex is already set by verifyKey().
+   * Caches the AES key in session storage if persistMinutes > 0.
+   */
+  async unlockApp ( password ) {
+    const stored = await chrome.storage.local.get( 'verifyHash' );
+
+    // First-time setup: generate salt and derive keys
+    if ( !stored.verifyHash ) {
+      const cryptoSalt = generateSalt();
+      const { verifyHash, aesKeyHex } = await deriveKeys( password, cryptoSalt );
+      this.aesKeyHex = aesKeyHex;
+      await chrome.storage.local.set( { cryptoSalt, verifyHash } );
+
+      const keyStatusEl = document.getElementById( 'keyStatus' );
+      keyStatusEl.textContent = 'New key set successfully!';
+      keyStatusEl.className = 'success';
+    } else {
+      const keyStatusEl = document.getElementById( 'keyStatus' );
+      keyStatusEl.textContent = 'Key verified successfully';
+      keyStatusEl.className = 'success';
+    }
+
+    this.isUnlocked = true;
+    await this.loadServices();
+    this.updateUIState();
+
+    // Cache AES key in session if persist is set
+    const persistMinutes = parseInt( document.getElementById( 'persistMinutes' ).value ) || 0;
+    if ( persistMinutes > 0 ) {
+      await this.saveSessionKey( this.aesKeyHex, persistMinutes );
+      this.updateExpirationDisplay( persistMinutes );
+    }
+  }
+
+  /** Check storage to determine if user needs to set or enter a key. */
+  async checkEncryptionKey () {
+    const stored = await chrome.storage.local.get( [ 'verifyHash', 'keyCheck' ] );
+    const keyStatusEl = document.getElementById( 'keyStatus' );
+    if ( stored.verifyHash || stored.keyCheck ) {
+      keyStatusEl.textContent = 'Enter key to unlock';
+      keyStatusEl.className = 'info';
+    } else {
+      keyStatusEl.textContent = 'Set new encryption key';
+      keyStatusEl.className = 'info';
+    }
+  }
+
+  /** Reset all data and return to initial state. */
   async resetAll () {
     await chrome.storage.local.clear();
     await chrome.storage.sync.clear();
-    // Clear saved password
-    await this.clearSavedPassword();
+    await this.clearSessionKey();
 
-    this.isUnlocked = false; // Lock the app after reset
-    this.currentPassword = null; // Clear current password
+    this.isUnlocked = false;
+    this.aesKeyHex = null;
     this.services = [];
     document.getElementById( 'serviceSelect' ).innerHTML = '<option value="">Select a service</option>';
     document.getElementById( 'totpCode' ).textContent = '';
     document.getElementById( 'timeRemaining' ).textContent = '';
-    document.getElementById( 'persistMinutes' ).value = '0'; // Reset persist minutes
-    this.updateExpirationDisplay( 0 ); // Hide expiration display
-    document.getElementById( 'keyStatus' ).className = ''; // Reset status class
+    document.getElementById( 'persistMinutes' ).value = '0';
+    this.updateExpirationDisplay( 0 );
+    document.getElementById( 'keyStatus' ).className = '';
 
-    await this.checkEncryptionKey(); // This will set the appropriate text and class
+    await this.checkEncryptionKey();
     this.updateUIState();
   }
 
-  async getOrCreateKey () {
-    let key = await chrome.storage.local.get( 'encryptionKey' );
-    if ( !key.encryptionKey ) {
-      // Generate random encryption key
-      const buffer = new Uint8Array( 32 );
-      crypto.getRandomValues( buffer );
-      key.encryptionKey = Array.from( buffer ).map( b => b.toString( 16 ).padStart( 2, '0' ) ).join( '' );
-      await chrome.storage.local.set( { encryptionKey: key.encryptionKey } );
+  /**
+   * Save services using write-then-cleanup strategy to prevent data loss.
+   * 1. Write all new chunks (overwrites existing keys)
+   * 2. Update metadata with new chunk count
+   * 3. Remove excess old chunks
+   */
+  async saveServices () {
+    const servicesJson = JSON.stringify( this.services );
+    const chunks = [];
+
+    for ( let i = 0; i < servicesJson.length; i += this.constructor.CHUNK_SIZE ) {
+      chunks.push( servicesJson.slice( i, i + this.constructor.CHUNK_SIZE ) );
     }
-    return key.encryptionKey;
+
+    // Get old metadata to know how many old chunks exist
+    const { metadata: oldMetadata } = await chrome.storage.sync.get( 'metadata' );
+    const oldChunkCount = oldMetadata?.totalChunks || 0;
+
+    // Write all new chunks
+    for ( let i = 0; i < chunks.length; i++ ) {
+      const encrypted = await encryptData( chunks[ i ], this.aesKeyHex );
+      await chrome.storage.sync.set( { [ `chunk_${ i }` ]: encrypted } );
+    }
+
+    // Update metadata with new chunk count
+    await chrome.storage.sync.set( { metadata: { totalChunks: chunks.length } } );
+
+    // Remove excess old chunks (if old had more chunks than new)
+    for ( let i = chunks.length; i < oldChunkCount; i++ ) {
+      await chrome.storage.sync.remove( `chunk_${ i }` );
+    }
   }
 
-  async encrypt ( data ) {
-    const key = await this.getOrCreateKey();
-    const iv = crypto.getRandomValues( new Uint8Array( 12 ) );
-    const encoder = new TextEncoder();
-    const keyBuffer = await crypto.subtle.importKey(
-      'raw',
-      new Uint8Array( key.match( /.{2}/g ).map( byte => parseInt( byte, 16 ) ) ),
-      { name: 'AES-GCM' },
-      false,
-      [ 'encrypt' ]
-    );
+  /** Load and decrypt services from sync storage. */
+  async loadServices () {
+    const { metadata } = await chrome.storage.sync.get( 'metadata' );
+    if ( !metadata ) {
+      this.services = [];
+      return;
+    }
 
-    const encrypted = await crypto.subtle.encrypt(
-      { name: 'AES-GCM', iv },
-      keyBuffer,
-      encoder.encode( JSON.stringify( data ) )
-    );
+    let servicesJson = '';
+    for ( let i = 0; i < metadata.totalChunks; i++ ) {
+      const { [ `chunk_${ i }` ]: chunk } = await chrome.storage.sync.get( `chunk_${ i }` );
+      if ( !chunk ) continue;
+      servicesJson += await decryptData( chunk, this.aesKeyHex );
+    }
 
-    return {
-      iv: Array.from( iv ).map( b => b.toString( 16 ).padStart( 2, '0' ) ).join( '' ),
-      data: Array.from( new Uint8Array( encrypted ) ).map( b => b.toString( 16 ).padStart( 2, '0' ) ).join( '' )
-    };
+    try {
+      this.services = JSON.parse( servicesJson );
+      this.updateServicesList();
+    } catch ( e ) {
+      console.error( 'Failed to parse services:', e );
+      this.services = [];
+    }
   }
 
-  async decrypt ( encrypted ) {
-    const key = await this.getOrCreateKey();
-    const keyBuffer = await crypto.subtle.importKey(
-      'raw',
-      new Uint8Array( key.match( /.{2}/g ).map( byte => parseInt( byte, 16 ) ) ),
-      { name: 'AES-GCM' },
-      false,
-      [ 'decrypt' ]
-    );
-
-    const decrypted = await crypto.subtle.decrypt(
-      {
-        name: 'AES-GCM',
-        iv: new Uint8Array( encrypted.iv.match( /.{2}/g ).map( byte => parseInt( byte, 16 ) ) )
-      },
-      keyBuffer,
-      new Uint8Array( encrypted.data.match( /.{2}/g ).map( byte => parseInt( byte, 16 ) ) )
-    );
-
-    return JSON.parse( new TextDecoder().decode( decrypted ) );
-  }
-
-  async verifyKey ( key ) {
-    const stored = await chrome.storage.local.get( 'keyCheck' );
-    if ( !stored.keyCheck ) return true;
-
-    const derivedKey = await this.deriveKey( key );
-    return stored.keyCheck === derivedKey;
-  }
-
-  async getSavedPassword () {
+  /**
+   * Retrieve the cached AES key from session storage via background script.
+   * @returns {Promise<string|null>} Hex AES key or null
+   */
+  async getSessionKey () {
     return new Promise( ( resolve ) => {
-      chrome.runtime.sendMessage( { type: 'getPassword' }, ( response ) => {
-        resolve( response?.password || null );
+      chrome.runtime.sendMessage( { type: 'getSessionKey' }, ( response ) => {
+        resolve( response?.sessionKey || null );
       } );
     } );
   }
 
+  /**
+   * Get remaining minutes before session key expires.
+   * @returns {Promise<number>} Minutes remaining, or 0
+   */
   async getRemainingMinutes () {
     return new Promise( ( resolve ) => {
       chrome.runtime.sendMessage( { type: 'getRemainingMinutes' }, ( response ) => {
@@ -209,18 +288,29 @@ class TOTPManager {
     } );
   }
 
-  async savePasswordWithTimeout ( password, minutes ) {
+  /**
+   * Save the AES key to session storage with a timeout.
+   * @param {string} aesKeyHex - The AES key to cache
+   * @param {number} minutes - Minutes until expiration
+   */
+  async saveSessionKey ( aesKeyHex, minutes ) {
     chrome.runtime.sendMessage( {
-      type: 'savePassword',
-      password: password,
+      type: 'saveSessionKey',
+      sessionKey: aesKeyHex,
       minutes: minutes
     } );
   }
 
-  async clearSavedPassword () {
-    chrome.runtime.sendMessage( { type: 'clearPassword' } );
+  /** Clear the cached session key. */
+  async clearSessionKey () {
+    chrome.runtime.sendMessage( { type: 'clearSessionKey' } );
   }
 
+  /**
+   * Format an expiration time for display.
+   * @param {number} minutes - Minutes from now
+   * @returns {string} Formatted expiration string
+   */
   formatExpirationTime ( minutes ) {
     if ( minutes <= 0 ) return '';
 
@@ -234,6 +324,10 @@ class TOTPManager {
     return `Expires: ${ year }-${ month }-${ day } ${ hours }:${ mins }`;
   }
 
+  /**
+   * Update the expiration time display element.
+   * @param {number} minutes - Minutes remaining, 0 to hide
+   */
   updateExpirationDisplay ( minutes ) {
     const expirationTimeEl = document.getElementById( 'expirationTime' );
     if ( minutes > 0 ) {
@@ -245,67 +339,10 @@ class TOTPManager {
     }
   }
 
-
-  async saveServices () {
-    // Removed check for this.encryptionKey
-    // Should only be called when unlocked anyway
-
-    // Clear existing chunks first
-    await chrome.storage.sync.clear();
-
-    // Convert and split data
-    const servicesJson = JSON.stringify( this.services );
-    const chunks = [];
-
-    for ( let i = 0; i < servicesJson.length; i += this.constructor.CHUNK_SIZE ) {
-      chunks.push( servicesJson.slice( i, i + this.constructor.CHUNK_SIZE ) );
-    }
-
-    // Save chunks and metadata
-    const metadata = { totalChunks: chunks.length };
-    await chrome.storage.sync.set( { metadata } );
-
-    // Save each chunk individually with index
-    for ( let i = 0; i < chunks.length; i++ ) {
-      const encrypted = await this.encrypt( chunks[ i ] );
-      const key = `chunk_${ i }`;
-      // Log chunk size before saving
-      console.log( `Chunk ${ i } size:`, new TextEncoder().encode( JSON.stringify( { [ key ]: encrypted } ) ).length );
-      await chrome.storage.sync.set( { [ key ]: encrypted } );
-    }
-  }
-
-  async loadServices () {
-    // Removed check for this.encryptionKey
-    // Should only be called when unlocked
-
-    // Get metadata
-    const { metadata } = await chrome.storage.sync.get( 'metadata' );
-    if ( !metadata ) {
-      this.services = [];
-      return;
-    }
-
-    // Load all chunks
-    let servicesJson = '';
-    for ( let i = 0; i < metadata.totalChunks; i++ ) {
-      const { [ `chunk_${ i }` ]: chunk } = await chrome.storage.sync.get( `chunk_${ i }` );
-      if ( !chunk ) continue;
-      const decrypted = await this.decrypt( chunk );
-      servicesJson += decrypted;
-    }
-
-    try {
-      this.services = JSON.parse( servicesJson );
-      this.updateServicesList();
-    } catch ( e ) {
-      console.error( 'Failed to parse services:', e );
-      this.services = [];
-    }
-  }
-
-
-
+  /**
+   * Start refreshing the TOTP code for a selected service.
+   * @param {number} serviceIndex - Index in the services array
+   */
   startTokenRefresh ( serviceIndex ) {
     if ( this.currentTimer ) {
       clearInterval( this.currentTimer );
@@ -316,17 +353,15 @@ class TOTPManager {
       const code = this.generateTOTP( service.secret );
       document.getElementById( 'totpCode' ).textContent = code;
 
-      // Calculate and show remaining seconds
       const secondsLeft = 30 - ( Math.floor( Date.now() / 1000 ) % 30 );
       document.getElementById( 'timeRemaining' ).textContent = `(${ secondsLeft }s)`;
     };
 
-    // Initial update
     updateToken();
-    // Update every second
     this.currentTimer = setInterval( updateToken, 1000 );
   }
 
+  /** Populate the service select dropdown with sorted entries. */
   updateServicesList () {
     const select = document.getElementById( 'serviceSelect' );
     select.innerHTML = '<option value="">Select a service</option>';
@@ -335,7 +370,6 @@ class TOTPManager {
       return [ `${ service.name } (${ service.otp.label })`, index ];
     } );
 
-    // sort opts by service name
     opts.sort( ( [ a ], [ b ] ) => a.localeCompare( b ) );
 
     opts.forEach( ( [ text, value ] ) => {
@@ -346,26 +380,27 @@ class TOTPManager {
     } );
   }
 
+  /**
+   * Generate a TOTP code for a given secret.
+   * @param {string} secret - Base32-encoded TOTP secret
+   * @returns {string} The TOTP code
+   */
   generateTOTP ( secret ) {
-    // Get current Unix timestamp in seconds
     const epoch = Math.floor( Date.now() / 1000 );
     return this.totp.getOtp( secret, epoch );
   }
 
+  /** Set up all DOM event listeners. */
   setupEventListeners () {
-    // Password persistence handler
+    // Session key persistence handler
     document.getElementById( 'persistMinutes' ).addEventListener( 'input', async ( e ) => {
       const minutes = parseInt( e.target.value ) || 0;
 
-      if ( minutes > 0 && this.currentPassword && this.isUnlocked ) {
-        // Save password with timeout
-        await this.savePasswordWithTimeout( this.currentPassword, minutes );
-        // Update expiration display
+      if ( minutes > 0 && this.aesKeyHex && this.isUnlocked ) {
+        await this.saveSessionKey( this.aesKeyHex, minutes );
         this.updateExpirationDisplay( minutes );
       } else {
-        // Clear saved password
-        await this.clearSavedPassword();
-        // Hide expiration display
+        await this.clearSessionKey();
         this.updateExpirationDisplay( 0 );
       }
     } );
@@ -379,8 +414,6 @@ class TOTPManager {
         height: 300
       } );
     } );
-
-    // Removed clearKey button listener
 
     // Listen for imported services
     chrome.runtime.onMessage.addListener( async ( message ) => {
@@ -435,12 +468,11 @@ class TOTPManager {
 
       const isValid = await this.verifyKey( password );
       if ( isValid ) {
-        await this.unlockApp( password ); // Use the new unlock method
-        // Status text and class are set within unlockApp
+        await this.unlockApp( password );
       } else {
         const keyStatusEl = document.getElementById( 'keyStatus' );
         keyStatusEl.textContent = 'Invalid key';
-        keyStatusEl.className = 'error'; // Add error class
+        keyStatusEl.className = 'error';
       }
     };
 
@@ -451,29 +483,15 @@ class TOTPManager {
       }
     } );
 
-    document.getElementById( 'setKey' ).addEventListener( 'click', async () => {
-      const password = document.getElementById( 'encryptionKey' ).value;
-      if ( !password ) return;
-
-      const isValid = await this.verifyKey( password );
-      if ( isValid ) {
-        await this.unlockApp( password ); // Use the new unlock method
-        // Status text and class are set within unlockApp
-      } else {
-        const keyStatusEl = document.getElementById( 'keyStatus' );
-        keyStatusEl.textContent = 'Invalid key';
-        keyStatusEl.className = 'error'; // Add error class
-      }
-    } );
+    document.getElementById( 'setKey' ).addEventListener( 'click', handleSetKey );
 
     document.getElementById( 'resetAll' ).addEventListener( 'click', async () => {
       if ( confirm( 'This will delete all services and reset the encryption key. Are you sure?' ) ) {
         await this.resetAll();
       }
     } );
-
-  } // End of setupEventListeners method
-} // End of TOTPManager class
+  }
+}
 
 // Initialize the TOTP manager when the popup opens
 document.addEventListener( 'DOMContentLoaded', () => {
