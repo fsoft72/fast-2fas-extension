@@ -248,19 +248,22 @@ class TOTPManager {
       return;
     }
 
-    let servicesJson = '';
-    for ( let i = 0; i < metadata.totalChunks; i++ ) {
-      const { [ `chunk_${ i }` ]: chunk } = await chrome.storage.sync.get( `chunk_${ i }` );
-      if ( !chunk ) continue;
-      servicesJson += await decryptData( chunk, this.aesKeyHex );
-    }
-
     try {
+      let servicesJson = '';
+      for ( let i = 0; i < metadata.totalChunks; i++ ) {
+        const { [ `chunk_${ i }` ]: chunk } = await chrome.storage.sync.get( `chunk_${ i }` );
+        if ( !chunk ) continue;
+        servicesJson += await decryptData( chunk, this.aesKeyHex );
+      }
+
       this.services = JSON.parse( servicesJson );
       this.updateServicesList();
     } catch ( e ) {
-      console.error( 'Failed to parse services:', e );
+      console.error( 'Failed to decrypt/parse services:', e );
       this.services = [];
+      const keyStatusEl = document.getElementById( 'keyStatus' );
+      keyStatusEl.textContent = 'Failed to decrypt services. Data may be corrupted.';
+      keyStatusEl.className = 'error';
     }
   }
 
@@ -293,7 +296,7 @@ class TOTPManager {
    * @param {string} aesKeyHex - The AES key to cache
    * @param {number} minutes - Minutes until expiration
    */
-  async saveSessionKey ( aesKeyHex, minutes ) {
+  saveSessionKey ( aesKeyHex, minutes ) {
     chrome.runtime.sendMessage( {
       type: 'saveSessionKey',
       sessionKey: aesKeyHex,
@@ -302,7 +305,7 @@ class TOTPManager {
   }
 
   /** Clear the cached session key. */
-  async clearSessionKey () {
+  clearSessionKey () {
     chrome.runtime.sendMessage( { type: 'clearSessionKey' } );
   }
 
