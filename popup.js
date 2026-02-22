@@ -440,11 +440,13 @@ class TOTPManager {
 
     // Service selection handler
     document.getElementById( 'serviceSelect' ).addEventListener( 'change', ( e ) => {
+      const totpContainer = document.querySelector( '.totpContainer' );
       const copyButton = document.getElementById( 'copyButton' );
       if ( e.target.value === '' ) {
         document.getElementById( 'totpCode' ).textContent = '';
         document.getElementById( 'timeRemaining' ).textContent = '';
         copyButton.classList.add( 'hidden' );
+        totpContainer.classList.add( 'hidden' );
         if ( this.currentTimer ) {
           clearInterval( this.currentTimer );
           this.currentTimer = null;
@@ -452,6 +454,7 @@ class TOTPManager {
         return;
       }
 
+      totpContainer.classList.remove( 'hidden' );
       copyButton.classList.remove( 'hidden' );
       this.startTokenRefresh( e.target.value );
     } );

@@ -38,7 +38,7 @@ document.addEventListener( 'DOMContentLoaded', () => {
 
 		} catch ( error ) {
 			console.error( 'Import failed:', error );
-			statusDiv.textContent = 'Failed to import: ' + error.message;
+			statusDiv.textContent = 'Failed to import file. Please check the format and try again.';
 		} finally {
 			importButton.disabled = false;
 			importButton.textContent = 'Import Services';
