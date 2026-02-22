@@ -1,7 +1,7 @@
 #!/bin/bash
 
 # Define the output filename
-ZIP_NAME="fast-2fa-extension.zip"
+ZIP_NAME="/ramdisk/fast-2fa-extension.zip"
 
 # Remove existing zip if it exists
 if [ -f "$ZIP_NAME" ]; then
