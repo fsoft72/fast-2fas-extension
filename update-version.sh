@@ -6,9 +6,9 @@
 #   ./update-version.sh 2.0.0    # sets version to 2.0.0
 
 MANIFEST="manifest.json"
-CURRENT=$(grep -oP '"version":\s*"\K[^"]+' "$MANIFEST")
+CURRENT=$(jq -r '.version' "$MANIFEST")
 
-if [ -z "$CURRENT" ]; then
+if [ -z "$CURRENT" ] || [ "$CURRENT" = "null" ]; then
   echo "ERROR: could not read version from $MANIFEST"
   exit 1
 fi
@@ -22,6 +22,7 @@ else
   NEW_VERSION="${MAJOR}.${MINOR}.${PATCH}"
 fi
 
-sed -i "s/\"version\": \"$CURRENT\"/\"version\": \"$NEW_VERSION\"/" "$MANIFEST"
+TMP=$(mktemp)
+jq --tab --arg v "$NEW_VERSION" '.version = $v' "$MANIFEST" > "$TMP" && mv "$TMP" "$MANIFEST"
 
 echo "$CURRENT -> $NEW_VERSION"

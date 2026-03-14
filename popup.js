@@ -41,12 +41,6 @@ class TOTPManager {
 
       await this.loadServices();
       this.updateUIState();
-
-      const remainingMinutes = await this.getRemainingMinutes();
-      if ( remainingMinutes > 0 ) {
-        document.getElementById( 'persistMinutes' ).value = remainingMinutes;
-        this.updateExpirationDisplay( remainingMinutes );
-      }
       return;
     }
 
