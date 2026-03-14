@@ -15,6 +15,7 @@
   connect-src 'none'`) — blocks all outbound network requests.
 - SEC: Sanitized error messages in import flow to avoid leaking internal details.
 - SEC: Removed debug `console.log` from `saveServices()`.
+- UI: Moved "Save pwd for" option from the unlocked screen to the password entry screen.
 - UI: Hide TOTP code section when no service is selected.
 - FIX: Password caching ("Save pwd for x minutes") now survives service worker restarts.
   Replaced in-memory variables with `chrome.storage.session` in `background.js`.

@@ -233,9 +233,8 @@
     }
 
     #passwordPersistSection {
-      margin-top: 15px;
-      padding-top: 15px;
-      border-top: 1px solid var(--border-color);
+      margin-top: 5px;
+      margin-bottom: 10px;
       display: flex;
       flex-direction: column;
       justify-content: center;
@@ -411,6 +410,11 @@
           stored anywhere and is only used to encrypt and decrypt your secrets.
         </div>
 
+        <div id="passwordPersistSection">
+          <label for="persistMinutes">Save pwd for <input type="number" id="persistMinutes" min="0" max="1440" value="0"> minutes</label>
+          <div id="expirationTime" class="hidden"></div>
+        </div>
+
         <div id="keyStatus"></div>
       </div>
       <!-- Removed Clear Session Key button -->
@@ -426,11 +430,6 @@
           <button id="copyButton" class="button hidden">Copy</button>
         </div>
         <div id="timeRemaining"></div>
-      </div>
-
-      <div id="passwordPersistSection">
-        <label for="persistMinutes">Save pwd for <input type="number" id="persistMinutes" min="0" max="1440" value="0"> minutes</label>
-        <div id="expirationTime" class="hidden"></div>
       </div>
 
       <div id="importSection">
