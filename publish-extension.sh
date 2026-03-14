@@ -11,6 +11,6 @@ fi
 # Create the zip file excluding the source high-res image and the git directory
 # -r: recursive
 # -x: exclude pattern
-zip -r "$ZIP_NAME" . -x "images/fast-2fa.png" ".git/*" "publish-extension.sh" "CHANGES.md" ".gemini/*"
+zip -r "$ZIP_NAME" . -x "images/fast-2fa.png" ".git/*" "publish-extension.sh" "update-version.sh" "CHANGES.md" ".gemini/*" ".claude/*"
 
 echo "Extension packaged into $ZIP_NAME"
