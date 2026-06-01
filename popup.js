@@ -173,8 +173,8 @@ class TOTPManager {
     const stored = await chrome.storage.local.get( [ 'verifyHash', 'keyCheck' ] );
     const keyStatusEl = document.getElementById( 'keyStatus' );
     if ( stored.verifyHash || stored.keyCheck ) {
-      keyStatusEl.textContent = 'Enter key to unlock';
-      keyStatusEl.className = 'info';
+      keyStatusEl.textContent = '';
+      keyStatusEl.className = 'hidden';
     } else {
       keyStatusEl.textContent = 'Set new encryption key';
       keyStatusEl.className = 'info';
@@ -195,7 +195,7 @@ class TOTPManager {
     document.getElementById( 'timeRemaining' ).textContent = '';
     document.getElementById( 'persistMinutes' ).value = '0';
     this.updateExpirationDisplay( 0 );
-    document.getElementById( 'keyStatus' ).className = '';
+    document.getElementById( 'keyStatus' ).className = 'hidden';
 
     await this.checkEncryptionKey();
     this.updateUIState();
@@ -361,6 +361,7 @@ class TOTPManager {
   /** Populate the service select dropdown with sorted entries. */
   updateServicesList () {
     const select = document.getElementById( 'serviceSelect' );
+    if ( !select ) return;
     select.innerHTML = '<option value="">Select a service</option>';
 
     const opts = this.services.map( ( service, index ) => {
@@ -476,7 +477,7 @@ class TOTPManager {
       }
     };
 
-    document.getElementById( 'encryptionKey' ).addEventListener( 'keypress', async ( e ) => {
+    document.getElementById( 'persistMinutes' ).addEventListener( 'keypress', async ( e ) => {
       if ( e.key === 'Enter' ) {
         e.preventDefault();
         await handleSetKey();

@@ -82,12 +82,6 @@
       /* Include padding in width */
     }
 
-    #keySection {
-      padding-bottom: 15px;
-      margin-bottom: 15px;
-      border-bottom: 1px solid var(--border-color);
-    }
-
     .master-password {
       display: flex;
       /* Align input and button */
@@ -186,6 +180,13 @@
     }
 
 
+
+    #serviceSelect {
+      width: 100%;
+      /* Full width */
+      box-sizing: border-box;
+    }
+
     #mainContent {
       opacity: 1;
       transition: opacity 0.3s ease;
@@ -201,12 +202,6 @@
     #mainContent.hidden {
       display: none !important;
       /* Use display none instead of opacity for hidden */
-    }
-
-    #serviceSelect {
-      width: 100%;
-      /* Full width */
-      box-sizing: border-box;
     }
 
     #totpCode {
@@ -400,22 +395,29 @@
   <div class="container">
     <div id="keySection">
       <div id="keyRequestSection">
-        <h1>Fast 2FA</h1>
-        <div class="master-password">
-          <input type="password" id="encryptionKey" placeholder="Enter master password" autofocus>
-          <button id="setKey">Set Key</button>
+        <h1 style="margin-bottom: 20px;">Fast2FA</h1>
+        <div style="margin-bottom: 15px;">
+          <input type="password" id="encryptionKey" placeholder="Enter master password" autofocus style="width: 100%; box-sizing: border-box;">
         </div>
 
-        <div class="description">Fast 2FA requires a master password to encrypt your 2FA secrets. This password is not
-          stored anywhere and is only used to encrypt and decrypt your secrets.
-        </div>
-
-        <div id="passwordPersistSection">
-          <label for="persistMinutes">Save pwd for <input type="number" id="persistMinutes" min="0" max="1440" value="0"> minutes</label>
+        <div id="passwordPersistSection" style="margin-top: 10px; margin-bottom: 15px;">
+          <label for="persistMinutes">Save password for <input type="number" id="persistMinutes" min="0" max="1440" value="0"> minutes</label>
           <div id="expirationTime" class="hidden"></div>
         </div>
 
-        <div id="keyStatus"></div>
+        <hr style="border: 0; border-top: 1px solid var(--border-color); margin: 15px 0;">
+
+
+        <div class="description" style="font-size: 0.8em; margin-bottom: 15px; text-align: left;">Fast 2FA requires a master password to encrypt your 2FA secrets. This password is not stored anywhere and is only used to encrypt and decrypt your secrets.</div>
+
+        <button id="setKey" style="width: 100%; box-sizing: border-box; font-weight: bold; margin-bottom: 10px;">Open Vault</button>
+
+        <div id="keyStatus" class="hidden"></div>
+        <div style="font-size: 0.8em; text-align: center; margin-bottom: 10px; color: var(--secondary-text);">
+          Developed by <a href="https://github.com/fsoft72" target="_blank" style="color: var(--primary-color); text-decoration: none;">Fabio Rotondo</a> 
+          - <a href="https://www.os3.it" target="_blank" style="color: var(--primary-color); text-decoration: none;">OS3 srl</a>
+          <br> <a href="https://github.com/fsoft72/fast-2fas-extension" target="_blank" style="color: var(--primary-color); text-decoration: none;">Github Code</a>
+        </div>
       </div>
       <!-- Removed Clear Session Key button -->
     </div>
