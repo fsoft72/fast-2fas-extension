@@ -349,6 +349,10 @@ class TOTPManager {
       const service = this.services[ serviceIndex ];
       const code = this.generateTOTP( service.secret );
       document.getElementById( 'totpCode' ).textContent = code;
+      if ( code !== this.lastCopiedCode ) {
+        this.lastCopiedCode = code;
+        this.copyCode( code );
+      }
 
       const secondsLeft = 30 - ( Math.floor( Date.now() / 1000 ) % 30 );
       document.getElementById( 'timeRemaining' ).textContent = `(${ secondsLeft }s)`;
@@ -356,6 +360,19 @@ class TOTPManager {
 
     updateToken();
     this.currentTimer = setInterval( updateToken, 1000 );
+  }
+
+  /**
+   * Copy a code to the clipboard and show a toast confirmation.
+   * @param {string} code - The TOTP code to copy
+   */
+  copyCode ( code ) {
+    if ( !code ) return;
+    navigator.clipboard.writeText( code );
+    const toast = document.getElementById( 'copyToast' );
+    toast.classList.add( 'show' );
+    clearTimeout( this.toastTimer );
+    this.toastTimer = setTimeout( () => toast.classList.remove( 'show' ), 1200 );
   }
 
   /** Populate the service select dropdown with sorted entries. */
@@ -459,8 +476,7 @@ class TOTPManager {
 
     // Copy button handler
     document.getElementById( 'copyButton' ).addEventListener( 'click', () => {
-      const code = document.getElementById( 'totpCode' ).textContent;
-      if ( code ) navigator.clipboard.writeText( code );
+      this.copyCode( document.getElementById( 'totpCode' ).textContent );
     } );
 
     const handleSetKey = async () => {

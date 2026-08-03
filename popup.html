@@ -325,6 +325,25 @@
       display: none !important;
     }
 
+    #copyToast {
+      position: fixed;
+      bottom: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      background: var(--text-color, #333);
+      color: var(--bg-color, #fff);
+      padding: 6px 14px;
+      border-radius: 4px;
+      font-size: 13px;
+      opacity: 0;
+      transition: opacity 0.2s;
+      pointer-events: none;
+    }
+
+    #copyToast.show {
+      opacity: 0.95;
+    }
+
     /* Dark Mode Styles */
     @media (prefers-color-scheme: dark) {
       :root {
@@ -430,6 +449,7 @@
         <div class="totpRow">
           <div id="totpCode"></div>
           <button id="copyButton" class="button hidden">Copy</button>
+    <div id="copyToast">Copied!</div>
         </div>
         <div id="timeRemaining"></div>
       </div>
